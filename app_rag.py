@@ -40,9 +40,10 @@ chunks = text_splitter.split_text(content)
 # 텍스트 데이터를 Document 객체로 변환
 documents = [Document(page_content=chunk) for chunk in chunks]
 
-# 텍스트 데이터를 벡터 스토어에 저장
+# 로컬 디렉토리에 저장되는 Chroma 벡터 스토어 설정
 embeddings = OpenAIEmbeddings(openai_api_key=api_key)
-vector_store = Chroma.from_documents(documents, embeddings)
+vector_store = Chroma.from_documents(documents, embeddings, persist_directory="chroma_store")
+vector_store.persist()  # 데이터 저장
 
 # Streamlit 설정 및 챗봇 UI
 st.title("All-in Coding Challenge RAG Chatbot")
