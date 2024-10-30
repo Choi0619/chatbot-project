@@ -50,18 +50,31 @@ vector_store.persist()  # 데이터 저장
 # Streamlit 설정 및 챗봇 UI
 st.title("All-in Coding Challenge RAG Chatbot")
 st.write("이번 챗봇은 'ALL-in 코딩 공모전' 수상작 정보를 요약해주는 RAG 시스템입니다.")
-user_input = st.text_input("챗봇에게 질문을 입력하세요:")
 
-# RAG로 질문에 응답
-if user_input:
-    docs = vector_store.similarity_search(user_input)
-    prompt = PromptTemplate(input_variables=["question"], template="다음은 'ALL-in 코딩 공모전' 수상작 요약입니다. 질문에 대해 답변해주세요: {question}")
-    formatted_prompt = prompt.format(question=user_input)
+# 기존 대화 내용 저장을 위한 상태 초기화
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# 사용자 입력을 받는 인터페이스
+if prompt := st.chat_input("챗봇에게 질문을 입력하세요:"):
+    # 사용자 메시지를 화면에 표시하고 기록에 저장
+    with st.chat_message("user"):
+        st.markdown(prompt)
+    st.session_state.messages.append({"role": "user", "content": prompt})
+
+    # RAG 시스템을 사용해 응답 생성
+    docs = vector_store.similarity_search(prompt)
+    question_template = PromptTemplate(input_variables=["question"], template="다음은 'ALL-in 코딩 공모전' 수상작 요약입니다. 질문에 대해 답변해주세요: {question}")
+    formatted_prompt = question_template.format(question=prompt)
     
-    # ChatOpenAI 모델이 필요로 하는 HumanMessage 형식으로 변환
-    answer = llm([HumanMessage(content=formatted_prompt)])  # 입력을 ChatMessage로 전달
-    st.write("**챗봇의 답변:**", answer.content)
-    
-    # 대화 기록 저장
+    # 모델 응답 생성
+    answer = llm([HumanMessage(content=formatted_prompt)])
+
+    # 챗봇 응답을 화면에 표시하고 기록에 저장
+    with st.chat_message("assistant"):
+        st.markdown(answer.content)
+    st.session_state.messages.append({"role": "assistant", "content": answer.content})
+
+    # 대화 기록을 파일로 저장
     with open("conversation_log.txt", "a") as f:
-        f.write(f"사용자: {user_input}\n챗봇: {answer.content}\n\n")
+        f.write(f"사용자: {prompt}\n챗봇: {answer.content}\n\n")
