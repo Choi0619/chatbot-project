@@ -4,7 +4,6 @@ from langchain.chat_models import ChatOpenAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import Chroma
 from langchain.embeddings import OpenAIEmbeddings
-from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
 import requests
@@ -21,8 +20,14 @@ def fetch_blog_content(url):
     response = requests.get(url)
     soup = BeautifulSoup(response.content, "html.parser")
     main_content = soup.find("div", {"class": "blog-content"})  # 필요한 HTML 태그 지정
-    paragraphs = main_content.find_all("p")
-    content = " ".join([p.get_text() for p in paragraphs])
+
+    # main_content가 존재하지 않을 경우 처리
+    if main_content:
+        paragraphs = main_content.find_all("p")
+        content = " ".join([p.get_text() for p in paragraphs])
+    else:
+        content = "Error: The main content could not be found. Please check the HTML structure."
+    
     return content
 
 # 블로그 URL에서 내용 추출 및 분할
