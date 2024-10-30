@@ -5,6 +5,8 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import Chroma
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.docstore.document import Document
+from langchain.prompts import PromptTemplate
+from langchain.schema import HumanMessage
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
 import requests
@@ -53,10 +55,13 @@ user_input = st.text_input("챗봇에게 질문을 입력하세요:")
 # RAG로 질문에 응답
 if user_input:
     docs = vector_store.similarity_search(user_input)
-    prompt = f"다음은 'ALL-in 코딩 공모전' 수상작 요약입니다. {user_input} 질문에 대해 답변해주세요."
-    answer = llm(prompt)  
-    st.write("**챗봇의 답변:**", answer)
+    prompt = PromptTemplate(input_variables=["question"], template="다음은 'ALL-in 코딩 공모전' 수상작 요약입니다. 질문에 대해 답변해주세요: {question}")
+    formatted_prompt = prompt.format(question=user_input)
+    
+    # ChatOpenAI 모델이 필요로 하는 HumanMessage 형식으로 변환
+    answer = llm([HumanMessage(content=formatted_prompt)])  # 입력을 ChatMessage로 전달
+    st.write("**챗봇의 답변:**", answer.content)
     
     # 대화 기록 저장
     with open("conversation_log.txt", "a") as f:
-        f.write(f"사용자: {user_input}\n챗봇: {answer}\n\n")
+        f.write(f"사용자: {user_input}\n챗봇: {answer.content}\n\n")
