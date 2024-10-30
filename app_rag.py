@@ -4,6 +4,7 @@ from langchain.chat_models import ChatOpenAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import Chroma
 from langchain.embeddings import OpenAIEmbeddings
+from langchain.docstore.document import Document
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
 import requests
@@ -34,7 +35,10 @@ def fetch_blog_content(url):
 url = "https://spartacodingclub.kr/blog/all-in-challenge_winner"
 content = fetch_blog_content(url)
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-documents = text_splitter.split_text(content)
+chunks = text_splitter.split_text(content)
+
+# 텍스트 데이터를 Document 객체로 변환
+documents = [Document(page_content=chunk) for chunk in chunks]
 
 # 텍스트 데이터를 벡터 스토어에 저장
 embeddings = OpenAIEmbeddings(openai_api_key=api_key)
