@@ -55,7 +55,7 @@ def extract_award_info(soup):
             "Award Title": award_title,
             "Project Name": project_name,
             "Creators": creators,
-            "Description": description,
+            "Description": description[:100] + "..." if len(description) > 100 else description,  # 간단히 요약
             "Tech Stack": tech_stack
         })
     
@@ -89,24 +89,35 @@ if prompt := st.chat_input("챗봇에게 질문을 입력하세요:"):
         st.markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
 
-    # 사용자 질문에 따라 수상작 정보를 검색하고 응답 생성
-    docs = vector_store.similarity_search(prompt)
-    question_template = PromptTemplate(input_variables=["question"], template="{question}에 대한 답변입니다.")
-    formatted_prompt = question_template.format(question=prompt)
-    
-    # 모델 응답 생성
-    answer = llm([HumanMessage(content=formatted_prompt)])
-    
-    # 수상작 정보를 바탕으로 응답 구성
-    answer_content = ""
-    for doc in docs:
-        answer_content += doc.page_content + "\n\n"
+    # 사용자 질문에 따라 수상작 정보를 검색하고 요약 생성
+    if "ALL-in 코딩 공모전 수상작들을 요약해줘" in prompt:
+        # 요약된 수상작 정보 생성
+        answer_content = ""
+        for award in award_data:
+            answer_content += f"**수상 제목**: {award['Award Title']}\n"
+            answer_content += f"**프로젝트 이름**: {award['Project Name']}\n"
+            answer_content += f"**참여자**: {award['Creators']}\n"
+            answer_content += f"**설명**: {award['Description']}\n\n"  # 짧은 설명으로 요약
+        
+        # 너무 길면 나누어 출력
+        answer_segments = [answer_content[i:i+500] for i in range(0, len(answer_content), 500)]
+        for segment in answer_segments:
+            with st.chat_message("assistant"):
+                st.markdown(segment)
+        st.session_state.messages.append({"role": "assistant", "content": answer_content})
 
-    # 챗봇 응답을 화면에 표시하고 기록에 저장
-    with st.chat_message("assistant"):
-        st.markdown(answer_content if answer_content else answer.content)
-    st.session_state.messages.append({"role": "assistant", "content": answer_content if answer_content else answer.content})
+    else:
+        # RAG 시스템을 사용해 응답 생성
+        docs = vector_store.similarity_search(prompt)
+        question_template = PromptTemplate(input_variables=["question"], template="{question}에 대한 답변입니다.")
+        formatted_prompt = question_template.format(question=prompt)
+        
+        # 모델 응답 생성
+        answer = llm([HumanMessage(content=formatted_prompt)])
+        with st.chat_message("assistant"):
+            st.markdown(answer.content)
+        st.session_state.messages.append({"role": "assistant", "content": answer.content})
 
     # 대화 기록을 파일로 저장
     with open("conversation_log.txt", "a") as f:
-        f.write(f"사용자: {prompt}\n챗봇: {answer_content if answer_content else answer.content}\n\n")
+        f.write(f"사용자: {prompt}\n챗봇: {answer_content if 'ALL-in 코딩 공모전 수상작들을 요약해줘' in prompt else answer.content}\n\n")
