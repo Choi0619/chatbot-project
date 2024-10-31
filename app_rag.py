@@ -36,8 +36,11 @@ def extract_award_info(soup):
     
     for award in award_sections:
         award_title = award.get_text()
-        project_name = award.find_next('h2').get_text()
-        creators = award.find_next('p').get_text()
+        project_name_element = award.find_next('h2')
+        project_name = project_name_element.get_text() if project_name_element else "프로젝트 이름을 찾을 수 없음"
+        
+        creators_element = award.find_next('p')
+        creators = creators_element.get_text() if creators_element else "참여자 정보를 찾을 수 없음"
         
         # 상세 설명 추출 (가능한 경우)
         description_block = award.find_next('div', class_="my-callout")
