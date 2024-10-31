@@ -10,7 +10,6 @@ from langchain.schema import HumanMessage
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
 import requests
-import re
 
 # .env 파일에서 API 키 불러오기
 load_dotenv()
@@ -19,80 +18,109 @@ api_key = os.getenv("OPENAI_API_KEY")
 # OpenAI Chat 모델 설정
 llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=api_key)
 
-# 웹페이지에서 수상작을 자동으로 추출하는 함수
-def fetch_awards_content(url):
+# URL에서 텍스트를 크롤링하고 필요한 정보만 추출
+def fetch_blog_content(url):
     response = requests.get(url)
     soup = BeautifulSoup(response.content, "html.parser")
-    main_content = soup.find("div", {"class": "blog-content"})  # 주요 콘텐츠를 포함한 div 찾기
-    
-    if not main_content:
-        return "Error: The main content could not be found. Please check the HTML structure."
+    main_content = soup.find("div", {"class": "blog-content"})  # 필요한 HTML 태그 지정
 
-    # 각 수상작 구분 텍스트와 요약을 자동으로 찾기
-    award_sections = {"대상": [], "우수상": [], "입선": []}
-    current_award_type = None
+    # main_content가 존재하지 않을 경우 처리
+    if main_content:
+        paragraphs = main_content.find_all("p")
+        content = " ".join([p.get_text() for p in paragraphs])
+    else:
+        content = "Error: The main content could not be found. Please check the HTML structure."
     
-    for element in main_content.find_all(["p", "h3", "h2"]):  # 예시로 p, h3, h2 태그를 사용하여 수상작 정보를 찾음
-        text = element.get_text().strip()
+    return content
+
+# 수상 정보 추출 함수
+def extract_award_info(soup):
+    awards = []
+    award_sections = soup.find_all('h2')  # 수상 제목이 들어간 h2 태그를 모두 찾음
+    
+    for award in award_sections:
+        award_title = award.get_text()
+        project_name = award.find_next('h2').get_text()
+        creators = award.find_next('p').get_text()
         
-        # 수상작 종류를 인식
-        if "대상" in text:
-            current_award_type = "대상"
-        elif "우수상" in text:
-            current_award_type = "우수상"
-        elif "입선" in text:
-            current_award_type = "입선"
+        # 상세 설명 추출 (가능한 경우)
+        description_block = award.find_next('div', class_="my-callout")
+        description = description_block.get_text() if description_block else ""
         
-        # 수상작 요약을 각 항목에 추가
-        if current_award_type:
-            award_sections[current_award_type].append(text)
+        # 기술 스택 정보 추출
+        tech_stack = []
+        tech_paragraphs = award.find_all_next('p')
+        for paragraph in tech_paragraphs:
+            if "사용한 기술 스택" in paragraph.get_text():
+                tech_stack.append(paragraph.get_text())
+        
+        # 수상 정보 리스트에 추가
+        awards.append({
+            "Award Title": award_title,
+            "Project Name": project_name,
+            "Creators": creators,
+            "Description": description,
+            "Tech Stack": tech_stack
+        })
     
-    # 각 수상작별 요약을 정리
-    summaries = {}
-    for award, contents in award_sections.items():
-        summaries[award] = " ".join(contents)
+    return awards
 
-    return summaries
-
-# 수상작 내용을 자동으로 추출
+# 블로그 URL에서 내용 추출 및 분할
 url = "https://spartacodingclub.kr/blog/all-in-challenge_winner"
-award_summaries = fetch_awards_content(url)
+content = fetch_blog_content(url)
+soup = BeautifulSoup(content, "html.parser")
 
-# 로컬 Chroma 벡터 스토어 설정
+# 수상 정보 추출
+award_data = extract_award_info(soup)
+
+# 텍스트 데이터를 Document 객체로 변환하여 벡터 저장
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-chunks = text_splitter.split_text(" ".join(award_summaries.values()))
+chunks = text_splitter.split_text(content)
 documents = [Document(page_content=chunk) for chunk in chunks]
+
+# 로컬 디렉토리에 저장되는 Chroma 벡터 스토어 설정
 embeddings = OpenAIEmbeddings(openai_api_key=api_key)
 vector_store = Chroma.from_documents(documents, embeddings, persist_directory="chroma_store")
-vector_store.persist()
+vector_store.persist()  # 데이터 저장
 
 # Streamlit 설정 및 챗봇 UI
 st.title("All-in Coding Challenge RAG Chatbot")
 st.write("이번 챗봇은 'ALL-in 코딩 공모전' 수상작 정보를 요약해주는 RAG 시스템입니다.")
 
+# 기존 대화 내용 저장을 위한 상태 초기화
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# 사용자 입력을 받는 인터페이스
 if prompt := st.chat_input("챗봇에게 질문을 입력하세요:"):
+    # 사용자 메시지를 화면에 표시하고 기록에 저장
     with st.chat_message("user"):
         st.markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
 
-    if "수상작" in prompt or "대상" in prompt or "우수상" in prompt or "입선" in prompt:
-        response = "다음은 'ALL-in 코딩 공모전' 수상작 요약입니다:\n\n"
-        for award, summary in award_summaries.items():
-            response += f"**{award}**: {summary}\n\n"
-    else:
-        docs = vector_store.similarity_search(prompt)
-        question_template = PromptTemplate(input_variables=["question"], template="다음은 'ALL-in 코딩 공모전' 수상작 요약입니다. 질문에 대해 답변해주세요: {question}")
-        formatted_prompt = question_template.format(question=prompt)
-        
-        answer = llm([HumanMessage(content=formatted_prompt)])
-        response = answer.content
+    # RAG 시스템을 사용해 응답 생성
+    docs = vector_store.similarity_search(prompt)
+    question_template = PromptTemplate(input_variables=["question"], template="다음은 'ALL-in 코딩 공모전' 수상작 요약입니다. 질문에 대해 답변해주세요: {question}")
+    formatted_prompt = question_template.format(question=prompt)
+    
+    # 모델 응답 생성
+    answer = llm([HumanMessage(content=formatted_prompt)])
 
+    # 챗봇 응답을 화면에 표시하고 기록에 저장
     with st.chat_message("assistant"):
-        st.markdown(response)
-    st.session_state.messages.append({"role": "assistant", "content": response})
+        st.markdown(answer.content)
+    st.session_state.messages.append({"role": "assistant", "content": answer.content})
 
+    # 대화 기록을 파일로 저장
     with open("conversation_log.txt", "a") as f:
-        f.write(f"사용자: {prompt}\n챗봇: {response}\n\n")
+        f.write(f"사용자: {prompt}\n챗봇: {answer.content}\n\n")
+
+# 수상 정보 출력 (옵션)
+st.write("추출된 수상 정보:")
+for award in award_data:
+    st.write(f"**수상 제목**: {award['Award Title']}")
+    st.write(f"**프로젝트 이름**: {award['Project Name']}")
+    st.write(f"**참여자**: {award['Creators']}")
+    st.write(f"**설명**: {award['Description']}")
+    st.write(f"**기술 스택**: {', '.join(award['Tech Stack'])}")
+    st.write("---")
