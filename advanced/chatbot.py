@@ -29,7 +29,7 @@ st.markdown("""
     .chat-container {
         max-width: 700px;
         margin: auto;
-        padding: 20px;
+        padding: 5px;
         border: 1px solid #e6e6e6;
         border-radius: 15px;
         background-color: #FFFDFD;
@@ -64,9 +64,9 @@ st.markdown("""
         margin-top: 20px;
     }
     .feedback-container {
-        max-width: 500px;
+        max-width: 700px;
         margin: auto;
-        padding: 20px;
+        padding: 5px;
         border: 1px solid #E0E0E0;
         border-radius: 10px;
         background-color: #FFFCF9;
@@ -96,6 +96,8 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "feedback_submitted" not in st.session_state:
     st.session_state.feedback_submitted = False
+if "show_thank_you" not in st.session_state:
+    st.session_state.show_thank_you = False
 
 # 채팅 기록 표시 - 검색한 스타일 적용
 st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
@@ -148,6 +150,7 @@ if prompt := st.chat_input("저에게 본인의 마음을 털어놓아보세요.
 # 상담 종료 버튼 및 피드백 창
 if st.button("상담 종료"):
     st.session_state.feedback_submitted = False
+    st.session_state.show_thank_you = False  # 피드백 후 감사 메시지 초기화
     st.markdown("<div class='feedback-container'>", unsafe_allow_html=True)
     st.subheader("상담이 도움이 되셨나요?")
     feedback = st.radio("상담 경험을 평가해주세요:", ("", "매우 만족", "만족", "보통", "불만족", "매우 불만족"), index=0)
@@ -155,7 +158,11 @@ if st.button("상담 종료"):
     # 제출 버튼 추가
     if feedback and st.button("제출", key="submit_feedback"):
         st.session_state.feedback_submitted = True
-        st.success("피드백을 주셔서 감사합니다! 상담 챗봇의 개선에 도움이 됩니다.")
-        time.sleep(2)  # 2초 후 메시지 사라짐
-        st.experimental_rerun()  # 페이지 새로고침으로 피드백 창 닫기
-    st.markdown("</div>", unsafe_allow_html=True)
+        st.session_state.show_thank_you = True
+
+# 피드백 제출 후 감사 메시지 표시
+if st.session_state.show_thank_you:
+    st.success("피드백을 주셔서 감사합니다! 상담 챗봇의 개선에 도움이 됩니다.")
+    time.sleep(2)  # 2초 동안 감사 메시지 표시
+    st.session_state.show_thank_you = False  # 메시지 초기화
+    st.experimental_rerun()  # 페이지 새로고침으로 피드백 창 닫기
