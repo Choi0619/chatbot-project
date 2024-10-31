@@ -6,6 +6,7 @@ from langchain.schema import HumanMessage
 from langchain.memory import ConversationBufferMemory
 from dotenv import load_dotenv
 from transformers import pipeline
+import time
 
 # 환경 변수 로드
 load_dotenv()
@@ -21,15 +22,58 @@ memory = ConversationBufferMemory()
 # Streamlit UI 설정 - 페이지 타이틀
 st.set_page_config(page_title="마음 쉼터 상담 챗봇", page_icon="🌸")
 
-# 대화 기록 초기화
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# 스타일링 CSS 적용 - 부드러운 색상과 스타일 추가
+st.markdown("""
+    <style>
+    body { background-color: #FAF3F3; }
+    .chat-container {
+        max-width: 700px;
+        margin: auto;
+        padding: 20px;
+        border: 1px solid #e6e6e6;
+        border-radius: 15px;
+        background-color: #FFFDFD;
+        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    .input-area {
+        margin-top: 20px;
+    }
+    .feedback-container {
+        max-width: 500px;
+        margin: auto;
+        padding: 20px;
+        border: 1px solid #E0E0E0;
+        border-radius: 10px;
+        background-color: #FFFCF9;
+    }
+    .submit-button {
+        background-color: #F28A8A;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 16px;
+        cursor: pointer;
+        margin-top: 10px;
+    }
+    .submit-button:hover {
+        background-color: #FF6B6B;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # UI 시작 - 챗봇 타이틀 및 설명
 st.title("🌸 마음 쉼터 상담 챗봇 🌸")
 st.write("안녕하세요! 따뜻한 마음으로 귀 기울여 드릴게요. 언제든지 마음을 나눠보세요.")
 
+# 대화 기록 초기화
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "feedback_submitted" not in st.session_state:
+    st.session_state.feedback_submitted = False
+
 # 채팅 기록 표시 - 기본 Streamlit 스타일 사용
+st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
 for message in st.session_state.messages:
     role, content = message["role"], message["content"]
     if role == "user":
@@ -38,6 +82,7 @@ for message in st.session_state.messages:
     else:
         with st.chat_message("assistant"):
             st.write(content)
+st.markdown("</div>", unsafe_allow_html=True)
 
 # 사용자 입력 처리
 if prompt := st.chat_input("저에게 본인의 마음을 털어놓아보세요..."):
@@ -81,7 +126,15 @@ if prompt := st.chat_input("저에게 본인의 마음을 털어놓아보세요.
 
 # 상담 종료 버튼 및 피드백 창
 if st.button("상담 종료"):
+    st.session_state.feedback_submitted = False
+    st.markdown("<div class='feedback-container'>", unsafe_allow_html=True)
     st.subheader("상담이 도움이 되셨나요?")
-    feedback = st.radio("상담 경험을 평가해주세요:", ("매우 만족", "만족", "보통", "불만족", "매우 불만족"))
-    if feedback:
+    feedback = st.radio("상담 경험을 평가해주세요:", ("", "매우 만족", "만족", "보통", "불만족", "매우 불만족"))
+    
+    # 제출 버튼 추가
+    if feedback and st.button("제출", key="submit_feedback"):
+        st.session_state.feedback_submitted = True
         st.success("피드백을 주셔서 감사합니다! 상담 챗봇의 개선에 도움이 됩니다.")
+        time.sleep(2)  # 2초 후 메시지 사라짐
+        st.experimental_rerun()  # 페이지 새로고침으로 피드백 창 닫기
+    st.markdown("</div>", unsafe_allow_html=True)
