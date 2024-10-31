@@ -65,12 +65,10 @@ def extract_award_info(soup):
     
     return awards
 
-# 블로그 URL에서 내용 추출 및 분할
+# 블로그 URL에서 내용 추출 및 수상 정보 추출
 url = "https://spartacodingclub.kr/blog/all-in-challenge_winner"
 content = fetch_blog_content(url)
 soup = BeautifulSoup(content, "html.parser")
-
-# 수상 정보 추출
 award_data = extract_award_info(soup)
 
 # 텍스트 데이터를 Document 객체로 변환하여 벡터 저장
@@ -98,13 +96,25 @@ if prompt := st.chat_input("챗봇에게 질문을 입력하세요:"):
         st.markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
 
-    # RAG 시스템을 사용해 응답 생성
-    docs = vector_store.similarity_search(prompt)
-    question_template = PromptTemplate(input_variables=["question"], template="다음은 'ALL-in 코딩 공모전' 수상작 요약입니다. 질문에 대해 답변해주세요: {question}")
-    formatted_prompt = question_template.format(question=prompt)
-    
-    # 모델 응답 생성
-    answer = llm([HumanMessage(content=formatted_prompt)])
+    # 수상작 요약 질문에 대한 응답 생성
+    if "ALL-in 코딩 공모전 수상작들을 요약해줘" in prompt:
+        # 수상 정보를 요약해서 응답 생성
+        answer_content = ""
+        for award in award_data:
+            answer_content += f"**수상 제목**: {award['Award Title']}\n"
+            answer_content += f"**프로젝트 이름**: {award['Project Name']}\n"
+            answer_content += f"**참여자**: {award['Creators']}\n"
+            answer_content += f"**설명**: {award['Description']}\n"
+            answer_content += f"**기술 스택**: {', '.join(award['Tech Stack'])}\n\n"
+        answer = HumanMessage(content=answer_content)
+    else:
+        # RAG 시스템을 사용해 일반적인 응답 생성
+        docs = vector_store.similarity_search(prompt)
+        question_template = PromptTemplate(input_variables=["question"], template="다음은 'ALL-in 코딩 공모전' 수상작 요약입니다. 질문에 대해 답변해주세요: {question}")
+        formatted_prompt = question_template.format(question=prompt)
+        
+        # 모델 응답 생성
+        answer = llm([HumanMessage(content=formatted_prompt)])
 
     # 챗봇 응답을 화면에 표시하고 기록에 저장
     with st.chat_message("assistant"):
@@ -114,13 +124,3 @@ if prompt := st.chat_input("챗봇에게 질문을 입력하세요:"):
     # 대화 기록을 파일로 저장
     with open("conversation_log.txt", "a") as f:
         f.write(f"사용자: {prompt}\n챗봇: {answer.content}\n\n")
-
-# 수상 정보 출력 (옵션)
-st.write("추출된 수상 정보:")
-for award in award_data:
-    st.write(f"**수상 제목**: {award['Award Title']}")
-    st.write(f"**프로젝트 이름**: {award['Project Name']}")
-    st.write(f"**참여자**: {award['Creators']}")
-    st.write(f"**설명**: {award['Description']}")
-    st.write(f"**기술 스택**: {', '.join(award['Tech Stack'])}")
-    st.write("---")
