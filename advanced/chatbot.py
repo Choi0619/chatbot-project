@@ -29,7 +29,7 @@ for message in st.session_state.messages:
         st.markdown(content)
 
 # 사용자 입력 처리
-if prompt := st.chat_input("챗봇에게 이야기하세요..."):
+if prompt := st.chat_input("저에게 본인의 마음을 털어놓아보세요..."):
     # 감정 분석 수행
     sentiment_result = sentiment_analyzer(prompt)[0]
     sentiment = sentiment_result['label']
@@ -37,11 +37,11 @@ if prompt := st.chat_input("챗봇에게 이야기하세요..."):
 
     # 감정에 따른 프롬프트 조정
     if sentiment == "NEGATIVE":
-        tone = "차분하고 위로가 되는"
+        tone = "따뜻한 느낌을 주는 다정한 상담사의 관점으로"
     elif sentiment == "POSITIVE":
-        tone = "따뜻하고 긍정적인"
+        tone = "긍정적이며 따뜻한 관점으로"
     else:
-        tone = "중립적인"
+        tone = "중립적이고 편안한 관점으로"
 
     # 사용자 입력 저장
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -51,7 +51,7 @@ if prompt := st.chat_input("챗봇에게 이야기하세요..."):
     # GPT-4 모델에 전달할 프롬프트 생성
     question_template = PromptTemplate(
         input_variables=["tone", "question"],
-        template="{tone} 상담사의 관점에서 답변해주세요: {question}"
+        template="{tone} 대답해 주세요: {question}"
     )
     formatted_prompt = question_template.format(tone=tone, question=prompt)
 
@@ -60,3 +60,4 @@ if prompt := st.chat_input("챗봇에게 이야기하세요..."):
     with st.chat_message("assistant"):
         st.markdown(answer)
     st.session_state.messages.append({"role": "assistant", "content": answer})
+
