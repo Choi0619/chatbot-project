@@ -21,7 +21,7 @@ llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=api_key)
 def fetch_blog_content(url):
     response = requests.get(url)
     soup = BeautifulSoup(response.content, "html.parser")
-    main_content = soup.find("section", class_="css-18vt64m")  # 필요한 HTML 태그 지정
+    main_content = soup.find("section", class_="css-18vt64m")
     
     # main_content가 존재하지 않을 경우 처리
     if main_content:
@@ -82,12 +82,21 @@ st.write("이번 챗봇은 'ALL-in 코딩 공모전' 수상작 정보를 요약�
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# 대화 내용을 표시하기
+for message in st.session_state.messages:
+    if message["role"] == "user":
+        with st.chat_message("user"):
+            st.markdown(message["content"])
+    else:
+        with st.chat_message("assistant"):
+            st.markdown(message["content"])
+
 # 사용자 입력을 받는 인터페이스
 if prompt := st.chat_input("챗봇에게 질문을 입력하세요:"):
     # 사용자 메시지를 화면에 표시하고 기록에 저장
+    st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
-    st.session_state.messages.append({"role": "user", "content": prompt})
 
     # 사용자 질문에 따라 수상작 정보를 검색하고 요약 생성
     if "ALL-in 코딩 공모전 수상작들을 요약해줘" in prompt:
@@ -97,14 +106,14 @@ if prompt := st.chat_input("챗봇에게 질문을 입력하세요:"):
             answer_content += f"**수상 제목**: {award['Award Title']}\n"
             answer_content += f"**프로젝트 이름**: {award['Project Name']}\n"
             answer_content += f"**참여자**: {award['Creators']}\n"
-            answer_content += f"**설명**: {award['Description']}\n\n"  # 짧은 설명으로 요약
+            answer_content += f"**설명**: {award['Description']}\n\n"
         
         # 너무 길면 나누어 출력
         answer_segments = [answer_content[i:i+500] for i in range(0, len(answer_content), 500)]
         for segment in answer_segments:
             with st.chat_message("assistant"):
                 st.markdown(segment)
-        st.session_state.messages.append({"role": "assistant", "content": answer_content})
+            st.session_state.messages.append({"role": "assistant", "content": segment})
 
     else:
         # RAG 시스템을 사용해 응답 생성
