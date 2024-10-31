@@ -96,8 +96,7 @@ if prompt := st.chat_input("저에게 본인의 마음을 털어놓아보세요.
 
     # 사용자 입력 저장
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+    st.markdown(f"<div class='user-message'><span class='assistant-header'>사용자</span><br>{prompt}</div>", unsafe_allow_html=True)
 
     # 대화 맥락을 포함하여 대화 프롬프트 생성
     conversation_history = memory.load_memory_variables({}).get("history", "")
@@ -113,8 +112,7 @@ if prompt := st.chat_input("저에게 본인의 마음을 털어놓아보세요.
 
     # GPT-4 모델을 사용하여 응답 생성
     answer = llm([HumanMessage(content=formatted_prompt)]).content
-    with st.chat_message("assistant"):
-        st.markdown(answer)
+    st.markdown(f"<div class='assistant-message'><span class='assistant-header'>상담 챗봇</span><br>{answer}</div>", unsafe_allow_html=True)
     st.session_state.messages.append({"role": "assistant", "content": answer})
 
     # 대화 맥락 저장
