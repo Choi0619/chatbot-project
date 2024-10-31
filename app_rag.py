@@ -1,7 +1,6 @@
 import os
 import streamlit as st
 from langchain.chat_models import ChatOpenAI
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import Chroma
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.docstore.document import Document
@@ -22,18 +21,15 @@ llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=api_key)
 def fetch_blog_content(url):
     response = requests.get(url)
     soup = BeautifulSoup(response.content, "html.parser")
-    main_content = soup.find("div", {"class": "blog-content"})  # 필요한 HTML 태그 지정
-
+    main_content = soup.find("section", class_="css-18vt64m")  # 필요한 HTML 태그 지정
+    
     # main_content가 존재하지 않을 경우 처리
     if main_content:
-        paragraphs = main_content.find_all("p")
-        content = " ".join([p.get_text() for p in paragraphs])
+        return main_content
     else:
-        content = "Error: The main content could not be found. Please check the HTML structure."
-    
-    return content
+        return "Error: The main content could not be found. Please check the HTML structure."
 
-# 수상 정보 추출 함수
+# 수상작 정보 추출 함수
 def extract_award_info(soup):
     awards = []
     award_sections = soup.find_all('h2')  # 수상 제목이 들어간 h2 태그를 모두 찾음
@@ -65,16 +61,13 @@ def extract_award_info(soup):
     
     return awards
 
-# 블로그 URL에서 내용 추출 및 수상 정보 추출
+# 블로그 URL에서 수상작 정보 추출
 url = "https://spartacodingclub.kr/blog/all-in-challenge_winner"
-content = fetch_blog_content(url)
-soup = BeautifulSoup(content, "html.parser")
+soup = fetch_blog_content(url)
 award_data = extract_award_info(soup)
 
-# 텍스트 데이터를 Document 객체로 변환하여 벡터 저장
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-chunks = text_splitter.split_text(content)
-documents = [Document(page_content=chunk) for chunk in chunks]
+# 수상작 정보를 Document로 변환해 저장
+documents = [Document(page_content=award["Description"]) for award in award_data]
 
 # 로컬 디렉토리에 저장되는 Chroma 벡터 스토어 설정
 embeddings = OpenAIEmbeddings(openai_api_key=api_key)
@@ -96,31 +89,24 @@ if prompt := st.chat_input("챗봇에게 질문을 입력하세요:"):
         st.markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
 
-    # 수상작 요약 질문에 대한 응답 생성
-    if "ALL-in 코딩 공모전 수상작들을 요약해줘" in prompt:
-        # 수상 정보를 요약해서 응답 생성
-        answer_content = ""
-        for award in award_data:
-            answer_content += f"**수상 제목**: {award['Award Title']}\n"
-            answer_content += f"**프로젝트 이름**: {award['Project Name']}\n"
-            answer_content += f"**참여자**: {award['Creators']}\n"
-            answer_content += f"**설명**: {award['Description']}\n"
-            answer_content += f"**기술 스택**: {', '.join(award['Tech Stack'])}\n\n"
-        answer = HumanMessage(content=answer_content)
-    else:
-        # RAG 시스템을 사용해 일반적인 응답 생성
-        docs = vector_store.similarity_search(prompt)
-        question_template = PromptTemplate(input_variables=["question"], template="다음은 'ALL-in 코딩 공모전' 수상작 요약입니다. 질문에 대해 답변해주세요: {question}")
-        formatted_prompt = question_template.format(question=prompt)
-        
-        # 모델 응답 생성
-        answer = llm([HumanMessage(content=formatted_prompt)])
+    # 사용자 질문에 따라 수상작 정보를 검색하고 응답 생성
+    docs = vector_store.similarity_search(prompt)
+    question_template = PromptTemplate(input_variables=["question"], template="{question}에 대한 답변입니다.")
+    formatted_prompt = question_template.format(question=prompt)
+    
+    # 모델 응답 생성
+    answer = llm([HumanMessage(content=formatted_prompt)])
+    
+    # 수상작 정보를 바탕으로 응답 구성
+    answer_content = ""
+    for doc in docs:
+        answer_content += doc.page_content + "\n\n"
 
     # 챗봇 응답을 화면에 표시하고 기록에 저장
     with st.chat_message("assistant"):
-        st.markdown(answer.content)
-    st.session_state.messages.append({"role": "assistant", "content": answer.content})
+        st.markdown(answer_content if answer_content else answer.content)
+    st.session_state.messages.append({"role": "assistant", "content": answer_content if answer_content else answer.content})
 
     # 대화 기록을 파일로 저장
     with open("conversation_log.txt", "a") as f:
-        f.write(f"사용자: {prompt}\n챗봇: {answer.content}\n\n")
+        f.write(f"사용자: {prompt}\n챗봇: {answer_content if answer_content else answer.content}\n\n")
