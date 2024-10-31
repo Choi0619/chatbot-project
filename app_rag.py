@@ -42,24 +42,20 @@ def extract_award_info(soup):
         creators_element = award.find_next('p')
         creators = creators_element.get_text() if creators_element else "참여자 정보를 찾을 수 없음"
         
-        # 상세 설명 추출 (가능한 경우)
-        description_block = award.find_next('div', class_="my-callout")
-        description = description_block.get_text() if description_block else ""
-        
-        # 기술 스택 정보 추출
+        # 기술 스택 정보 추출 (요약에 포함)
         tech_stack = []
         tech_paragraphs = award.find_all_next('p')
         for paragraph in tech_paragraphs:
             if "사용한 기술 스택" in paragraph.get_text():
                 tech_stack.append(paragraph.get_text())
+                break  # 첫 번째 기술 스택 정보만 포함
         
         # 수상 정보 리스트에 추가
         awards.append({
             "Award Title": award_title,
             "Project Name": project_name,
             "Creators": creators,
-            "Description": description[:100] + "..." if len(description) > 100 else description,  # 간단히 요약
-            "Tech Stack": tech_stack
+            "Tech Stack": tech_stack[0] if tech_stack else "기술 스택 정보를 찾을 수 없음"  # 요약된 기술 스택 정보
         })
     
     return awards
@@ -68,14 +64,6 @@ def extract_award_info(soup):
 url = "https://spartacodingclub.kr/blog/all-in-challenge_winner"
 soup = fetch_blog_content(url)
 award_data = extract_award_info(soup)
-
-# 수상작 정보를 Document로 변환해 저장
-documents = [Document(page_content=award["Description"]) for award in award_data]
-
-# 로컬 디렉토리에 저장되는 Chroma 벡터 스토어 설정
-embeddings = OpenAIEmbeddings(openai_api_key=api_key)
-vector_store = Chroma.from_documents(documents, embeddings, persist_directory="chroma_store")
-vector_store.persist()  # 데이터 저장
 
 # Streamlit 설정 및 챗봇 UI
 st.title("All-in Coding Challenge RAG Chatbot")
@@ -104,19 +92,15 @@ if prompt := st.chat_input("챗봇에게 질문을 입력하세요:"):
     # 사용자 질문에 따라 수상작 정보를 검색하고 요약 생성
     if "ALL-in 코딩 공모전 수상작들을 요약해줘" in prompt:
         # 요약된 수상작 정보 생성
-        answer_content = ""
+        answer_content = "All-in 코딩 공모전 수상작 요약:\n\n"
         for award in award_data:
-            answer_content += f"**수상 제목**: {award['Award Title']}\n"
-            answer_content += f"**프로젝트 이름**: {award['Project Name']}\n"
-            answer_content += f"**참여자**: {award['Creators']}\n"
-            answer_content += f"**설명**: {award['Description']}\n\n"
+            answer_content += f"🏆 {award['Award Title']} - {award['Project Name']}\n"
+            answer_content += f"제작자: {award['Creators']}\n"
+            answer_content += f"기술 스택: {award['Tech Stack']}\n\n"
         
-        # 너무 길면 나누어 출력
-        answer_segments = [answer_content[i:i+500] for i in range(0, len(answer_content), 500)]
-        for segment in answer_segments:
-            with st.chat_message("assistant"):
-                st.markdown(segment)
-            st.session_state.messages.append({"role": "assistant", "content": segment})
+        with st.chat_message("assistant"):
+            st.markdown(answer_content)
+        st.session_state.messages.append({"role": "assistant", "content": answer_content})
 
     else:
         # RAG 시스템을 사용해 응답 생성
