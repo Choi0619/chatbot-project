@@ -18,32 +18,51 @@ sentiment_analyzer = pipeline("sentiment-analysis", model="nlptown/bert-base-mul
 # 대화 맥락 유지를 위한 메모리 설정
 memory = ConversationBufferMemory()
 
-# Streamlit UI 설정 - 사이드바 추가
+# Streamlit UI 설정 - 페이지 타이틀
 st.set_page_config(page_title="마음 쉼터 상담 챗봇", page_icon="🌸")
-with st.sidebar:
-    st.title("🌸 마음 쉼터 상담 챗봇 🌸")
-    st.write("안녕하세요! 마음이 힘드실 때 언제든지 챗봇과 함께 대화를 나눠보세요.")
-    st.write("사용 방법:")
-    st.markdown("""
-    - 상담 챗봇은 감정에 따라 적절한 어조로 답변을 제공합니다.
-    - 친근하고 편안하게 마음을 털어놓으시면, 챗봇이 귀 기울여 드립니다.
-    """)
-    st.write("💬 편안한 상담 공간에서 나만의 이야기를 나눠보세요!")
 
 # 대화 기록 초기화
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# 스타일링 CSS 적용 - 더 나은 UX를 위한 UI 스타일링
+# 스타일링 CSS 적용 - UI에 border와 배경 추가
 st.markdown("""
     <style>
-    .chat-container { max-width: 650px; margin: auto; padding: 10px; }
-    .user-message, .assistant-message { padding: 10px; border-radius: 15px; margin: 10px 0; max-width: 80%; }
-    .user-message { background-color: #DCF8C6; text-align: left; }
-    .assistant-message { background-color: #FFF3E0; text-align: left; }
-    .assistant-header { color: #4A4A4A; font-weight: bold; margin-bottom: 10px; }
-    .input-area { margin-top: 20px; }
-    .container { max-width: 700px; margin: auto; }
+    .chat-container {
+        max-width: 700px;
+        margin: auto;
+        padding: 10px;
+        border: 1px solid #dcdcdc;
+        border-radius: 15px;
+        background-color: #f9f9f9;
+        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    .user-message, .assistant-message {
+        padding: 10px;
+        border-radius: 15px;
+        margin: 10px 0;
+        max-width: 80%;
+    }
+    .user-message {
+        background-color: #DCF8C6;
+        text-align: left;
+    }
+    .assistant-message {
+        background-color: #FFF3E0;
+        text-align: left;
+    }
+    .assistant-header {
+        color: #4A4A4A;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    .input-area {
+        margin-top: 20px;
+    }
+    .feedback-button {
+        text-align: center;
+        margin-top: 20px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -51,7 +70,7 @@ st.markdown("""
 st.title("🌸 마음 쉼터 상담 챗봇 🌸")
 st.write("안녕하세요! 따뜻한 마음으로 귀 기울여 드릴게요. 언제든지 마음을 나눠보세요.")
 
-# 대화 기록 표시
+# 채팅 인터페이스
 st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
 for message in st.session_state.messages:
     role, content = message["role"], message["content"]
@@ -103,10 +122,11 @@ if prompt := st.chat_input("저에게 본인의 마음을 털어놓아보세요.
 
 st.markdown("</div>", unsafe_allow_html=True)
 
-# 상담 피드백 제공
-st.markdown("<div class='container'>", unsafe_allow_html=True)
-st.subheader("상담이 도움이 되셨나요?")
-feedback = st.radio("상담 경험을 평가해주세요:", ("매우 만족", "만족", "보통", "불만족", "매우 불만족"))
-if feedback:
-    st.success("피드백을 주셔서 감사합니다! 상담 챗봇의 개선에 도움이 됩니다.")
+# 상담 종료 버튼 및 피드백 창
+st.markdown("<div class='feedback-button'>", unsafe_allow_html=True)
+if st.button("상담 종료"):
+    st.subheader("상담이 도움이 되셨나요?")
+    feedback = st.radio("상담 경험을 평가해주세요:", ("매우 만족", "만족", "보통", "불만족", "매우 불만족"))
+    if feedback:
+        st.success("피드백을 주셔서 감사합니다! 상담 챗봇의 개선에 도움이 됩니다.")
 st.markdown("</div>", unsafe_allow_html=True)
