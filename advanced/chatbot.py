@@ -62,7 +62,7 @@ if prompt := st.chat_input("저에게 본인의 마음을 털어놓아보세요.
 
     # 이전 대화를 포함한 프롬프트 생성
     formatted_prompt = f"{tone} 답변해 주세요: {prompt}"
-    memory.save_context({"role": "user", "content": prompt}, {"role": "assistant", "content": memory.load_memory_variables({})})
+    memory.save_context({"input": prompt}, {"output": memory.load_memory_variables({})})
 
     # GPT-4 응답 생성
     answer = llm([HumanMessage(content=formatted_prompt)]).content
@@ -71,4 +71,4 @@ if prompt := st.chat_input("저에게 본인의 마음을 털어놓아보세요.
     st.session_state.messages.append({"role": "assistant", "content": answer})
 
     # 대화 저장
-    memory.save_context({"role": "user", "content": prompt}, {"role": "assistant", "content": answer})
+    memory.save_context({"input": prompt}, {"output": answer})
