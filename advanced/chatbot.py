@@ -61,8 +61,8 @@ if prompt := st.chat_input("저에게 본인의 마음을 털어놓아보세요.
         st.markdown(prompt)
 
     # 이전 대화를 포함한 프롬프트 생성
-    formatted_prompt = f"{tone} 답변해 주세요: {prompt}"
-    memory.save_context({"input": prompt}, {"output": memory.load_memory_variables({})})
+    conversation_history = memory.load_memory_variables({}).get("history", "")
+    formatted_prompt = f"{tone} 답변해 주세요: {prompt}\n\n{conversation_history}"
 
     # GPT-4 응답 생성
     answer = llm([HumanMessage(content=formatted_prompt)]).content
