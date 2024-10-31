@@ -62,10 +62,12 @@ if prompt := st.chat_input("저에게 본인의 마음을 털어놓아보세요.
 
     # 대화 맥락을 포함하여 대화 프롬프트 생성
     conversation_history = memory.load_memory_variables({}).get("history", "")
+    # 대화체 스타일로 답변을 유도하는 프롬프트 템플릿
     question_template = PromptTemplate(
         input_variables=["tone", "conversation_history", "user_input"],
-        template="{tone} 답변해 주세요. 이전 대화: {conversation_history} 사용자 질문: {user_input}"
+        template="{tone} 말투로, 넘버링 없이 마치 친구가 이야기하듯 편하게 조언해 주세요. 예를 들어, '저도 가벼운 산책이나 운동을 할 때 기분이 많이 나아지더라고요.' 같은 방식으로 답변을 작성해 주세요. 이전 대화: {conversation_history} 사용자 질문: {user_input}"
     )
+
     formatted_prompt = question_template.format(
         tone=tone, conversation_history=conversation_history, user_input=prompt
     )
