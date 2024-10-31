@@ -22,7 +22,7 @@ memory = ConversationBufferMemory()
 # Streamlit UI 설정 - 페이지 타이틀
 st.set_page_config(page_title="마음 쉼터 상담 챗봇", page_icon="🌸")
 
-# 스타일링 CSS 적용 - 부드러운 색상과 스타일 추가
+# 스타일링 CSS 적용 - 검색한 스타일 반영
 st.markdown("""
     <style>
     body { background-color: #FAF3F3; }
@@ -34,6 +34,31 @@ st.markdown("""
         border-radius: 15px;
         background-color: #FFFDFD;
         box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    .chat-row {
+        display: flex;
+        margin: 5px;
+        width: 100%;
+    }
+    .row-reverse {
+        flex-direction: row-reverse;
+    }
+    .chat-bubble {
+        font-family: "Source Sans Pro", sans-serif;
+        border: 1px solid transparent;
+        padding: 10px 15px;
+        margin: 0px 7px;
+        max-width: 70%;
+        font-size: 15px;
+    }
+    .ai-bubble {
+        background: rgb(240, 242, 246);
+        border-radius: 10px;
+    }
+    .human-bubble {
+        background: linear-gradient(135deg, rgb(0, 178, 255) 0%, rgb(0, 106, 255) 100%);
+        color: white;
+        border-radius: 20px;
     }
     .input-area {
         margin-top: 20px;
@@ -72,16 +97,14 @@ if "messages" not in st.session_state:
 if "feedback_submitted" not in st.session_state:
     st.session_state.feedback_submitted = False
 
-# 채팅 기록 표시 - 기본 Streamlit 스타일 사용
+# 채팅 기록 표시 - 검색한 스타일 적용
 st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
 for message in st.session_state.messages:
     role, content = message["role"], message["content"]
     if role == "user":
-        with st.chat_message("user"):
-            st.write(content)
+        st.markdown(f"<div class='chat-row row-reverse'><div class='chat-bubble human-bubble'>{content}</div></div>", unsafe_allow_html=True)
     else:
-        with st.chat_message("assistant"):
-            st.write(content)
+        st.markdown(f"<div class='chat-row'><div class='chat-bubble ai-bubble'>{content}</div></div>", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
 # 사용자 입력 처리
@@ -100,8 +123,7 @@ if prompt := st.chat_input("저에게 본인의 마음을 털어놓아보세요.
 
     # 사용자 입력 저장
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.write(prompt)
+    st.markdown(f"<div class='chat-row row-reverse'><div class='chat-bubble human-bubble'>{prompt}</div></div>", unsafe_allow_html=True)
 
     # 대화 맥락을 포함하여 대화 프롬프트 생성
     conversation_history = memory.load_memory_variables({}).get("history", "")
@@ -117,8 +139,7 @@ if prompt := st.chat_input("저에게 본인의 마음을 털어놓아보세요.
 
     # GPT-4 모델을 사용하여 응답 생성
     answer = llm([HumanMessage(content=formatted_prompt)]).content
-    with st.chat_message("assistant"):
-        st.write(answer)
+    st.markdown(f"<div class='chat-row'><div class='chat-bubble ai-bubble'>{answer}</div></div>", unsafe_allow_html=True)
     st.session_state.messages.append({"role": "assistant", "content": answer})
 
     # 대화 맥락 저장
@@ -129,7 +150,7 @@ if st.button("상담 종료"):
     st.session_state.feedback_submitted = False
     st.markdown("<div class='feedback-container'>", unsafe_allow_html=True)
     st.subheader("상담이 도움이 되셨나요?")
-    feedback = st.radio("상담 경험을 평가해주세요:", ("", "매우 만족", "만족", "보통", "불만족", "매우 불만족"))
+    feedback = st.radio("상담 경험을 평가해주세요:", ("", "매우 만족", "만족", "보통", "불만족", "매우 불만족"), index=0)
     
     # 제출 버튼 추가
     if feedback and st.button("제출", key="submit_feedback"):
