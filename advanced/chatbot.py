@@ -16,13 +16,13 @@ api_key = os.getenv("OPENAI_API_KEY")
 llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=api_key)
 sentiment_analyzer = pipeline("sentiment-analysis", model="nlptown/bert-base-multilingual-uncased-sentiment")
 
-# 대화 맥락 유지를 위한 메모리 설정
-memory = ConversationBufferMemory()
+# 대화 맥락 유지를 위한 메모리 설정 (LangChain 메모리 활용)
+memory = ConversationBufferMemory(return_messages=True)  # 대화 기록을 유지
 
 # Streamlit UI 설정 - 페이지 타이틀
 st.set_page_config(page_title="마음 쉼터 상담 챗봇", page_icon="🌸")
 
-# 스타일링 CSS 적용 - 검색한 스타일 반영
+# 스타일링 CSS 적용
 st.markdown("""
     <style>
     body { background-color: #FAF3F3; }
@@ -99,7 +99,7 @@ if "feedback_submitted" not in st.session_state:
 if "show_thank_you" not in st.session_state:
     st.session_state.show_thank_you = False
 
-# 채팅 기록 표시 - 검색한 스타일 적용
+# 채팅 기록 표시
 st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
 for message in st.session_state.messages:
     role, content = message["role"], message["content"]
@@ -127,14 +127,14 @@ if prompt := st.chat_input("저에게 본인의 마음을 털어놓아보세요.
     st.session_state.messages.append({"role": "user", "content": prompt})
     st.markdown(f"<div class='chat-row row-reverse'><div class='chat-bubble human-bubble'>{prompt}</div></div>", unsafe_allow_html=True)
 
-    # 대화 맥락을 포함하여 대화 프롬프트 생성
-    conversation_history = memory.load_memory_variables({}).get("history", "")
-    # 대화체 스타일로 답변을 유도하는 프롬프트 템플릿
+    # LangChain 메모리를 사용해 대화 히스토리를 포함한 프롬프트 생성
+    conversation_history = "\n".join([f"{msg['role']}: {msg['content']}" for msg in memory.chat_memory.messages])
     question_template = PromptTemplate(
         input_variables=["tone", "conversation_history", "user_input"],
-        template="{tone} 말투로, 넘버링 없이 마치 친구가 이야기하듯 편하게 조언해 주세요. 예를 들어, '저도 가벼운 산책이나 운동을 할 때 기분이 많이 나아지더라고요.' 같은 방식으로 답변을 작성해 주세요. 이전 대화: {conversation_history} 사용자 질문: {user_input}"
+        template="{tone} 말투로, 넘버링 없이 마치 가까운 사람과 이야기하듯 편하게 조언해 주세요. 예를 들어, '저도 가벼운 산책이나 운동을 할 때 기분이 많이 나아지더라고요.' 같은 방식으로 답변을 작성해 주세요. 이전 대화를 참고하여 답변해 주세요. 이전 대화: {conversation_history} 사용자 질문: {user_input}"
     )
 
+    # 템플릿에 값 적용
     formatted_prompt = question_template.format(
         tone=tone, conversation_history=conversation_history, user_input=prompt
     )
@@ -144,7 +144,7 @@ if prompt := st.chat_input("저에게 본인의 마음을 털어놓아보세요.
     st.markdown(f"<div class='chat-row'><div class='chat-bubble ai-bubble'>{answer}</div></div>", unsafe_allow_html=True)
     st.session_state.messages.append({"role": "assistant", "content": answer})
 
-    # 대화 맥락 저장
+    # LangChain 메모리에 대화 저장
     memory.save_context({"input": prompt}, {"output": answer})
 
 # 상담 종료 버튼 및 피드백 창
