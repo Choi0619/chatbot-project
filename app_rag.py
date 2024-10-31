@@ -22,14 +22,48 @@ def fetch_blog_content(url):
     response = requests.get(url)
     soup = BeautifulSoup(response.content, "html.parser")
     main_content = soup.find("section", class_="css-18vt64m")
-    
-    # main_content가 존재하지 않을 경우 처리
+
+    content = ""
     if main_content:
-        paragraphs = main_content.find_all("p")
-        content = " ".join([p.get_text() for p in paragraphs])
-        return content
+        # Find all h2 tags and relevant paragraphs
+        award_sections = main_content.find_all("h2")
+        
+        for h2 in award_sections:
+            text = h2.get_text(strip=True)
+            # Check if this h2 is an award title (using emoji or specific keywords like 대상, 우수상)
+            if any(award in text for award in ["🏆 대상", "🎖️ 우수상", "🏅 입선"]):
+                # Append the award title
+                content += f"\n\n### {text}\n"
+                
+                # Get the project name in the following <h2> tag (e.g., [Lexi Note] 언어공부 필기 웹 서비스)
+                next_h2 = h2.find_next_sibling("h2")
+                if next_h2:
+                    project_title = next_h2.get_text(strip=True)
+                    content += f"**Project Title:** {project_title}\n"
+                
+                # Get creator information
+                creator_tag = h2.find_next("p")
+                if creator_tag and creator_tag.find("strong"):
+                    creators = creator_tag.find("strong").get_text(strip=True)
+                    content += f"**Creators:** {creators}\n"
+                
+                # Find and add the description
+                description_block = h2.find_next("div", class_="my-callout")
+                if description_block:
+                    description = description_block.get_text(strip=True)
+                    content += f"**Description:** {description}\n"
+                
+                # Get the tech stack
+                tech_stack = []
+                for p in h2.find_all_next("p"):
+                    if "사용한 기술 스택" in p.get_text():
+                        tech_stack.append(p.get_text(strip=True))
+                if tech_stack:
+                    content += f"**Tech Stack:** {', '.join(tech_stack)}\n"
     else:
-        return "Error: The main content could not be found. Please check the HTML structure."
+        content = "Error: The main content could not be found. Please check the HTML structure."
+    
+    return content
 
 # 블로그 URL에서 내용 추출 및 분할
 url = "https://spartacodingclub.kr/blog/all-in-challenge_winner"
